@@ -1,4 +1,4 @@
 flask
 instagrapi
 gunicorn
-supabase
+firebase-admin
