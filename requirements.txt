@@ -1,3 +1,4 @@
 flask
 instagrapi
 gunicorn
+supabase
