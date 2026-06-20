@@ -16,31 +16,27 @@ from instagrapi.exceptions import (
     SelectContactPointRecoveryForm,
     TwoFactorRequired,
 )
-from supabase import create_client, Client
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
-# Initialize Supabase
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ============================================
+# IN-MEMORY STORAGE (temporary, logs will disappear on restart)
+# ============================================
+logs_memory = []
 
 def load_logs():
-    try:
-        response = supabase.table("logs").select("*").order("timestamp", desc=True).limit(500).execute()
-        return response.data
-    except Exception as e:
-        print(f"Error loading logs: {e}")
-        return []
+    """Load logs from in-memory storage"""
+    return logs_memory
 
 def save_log(entry):
-    try:
-        supabase.table("logs").insert(entry).execute()
-    except Exception as e:
-        print(f"Error saving log: {e}")
+    """Save log to in-memory storage"""
+    logs_memory.insert(0, entry)
+    # Keep only last 500 entries
+    if len(logs_memory) > 500:
+        logs_memory.pop()
 
 def require_admin(f):
     @functools.wraps(f)
@@ -68,12 +64,9 @@ def admin():
 @app.route("/admin/clear", methods=["POST"])
 @require_admin
 def admin_clear():
-    try:
-        supabase.table("logs").delete().neq("id", 0).execute()
-        return ("", 204)
-    except Exception as e:
-        print(f"Error clearing logs: {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+    global logs_memory
+    logs_memory = []
+    return ("", 204)
 
 @app.route("/check", methods=["POST"])
 def check_credentials():
